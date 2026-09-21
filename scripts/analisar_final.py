@@ -31,7 +31,7 @@ def carregar():
     df = pd.read_csv(CSV_PATH)
     # Limpa nomes de colunas
     df.columns = [c.strip() for c in df.columns]
-    num_cols = ["Threads", "Chunk", "T_Med_Glob", "T_Min_Glob", "T_Max_Glob", "FatorBal", "repeticao"]
+    num_cols = ["Threads", "Chunk", "T_Med_Glob", "T_Min_Glob", "T_Max_Glob", "T_Med_Serial", "FatorBal", "repeticao"]  # NOVO: T_Med_Serial adicionada para virar numerica
     for c in num_cols:
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce")
@@ -161,6 +161,33 @@ def grafico_tempo_bruto(tabela, titulo, arquivo, combine_chunks=False):
     ax_t.set_title(f"Tempo de Execução — {titulo}")
     ax_t.legend(); ax_t.grid(alpha=0.3)
     salvar(fig_t, arquivo)
+
+def grafico_tempo_serial_paralelo(tabela, titulo, arquivo):
+    # NOVO: mostra, por quantidade de threads, quanto do tempo total (T_Med_Glob) e
+    # parte serial da funcao mandelbrot (T_Med_Serial, alocacoes/vetores antes do
+    # "#pragma omp parallel") e quanto e parte paralela (T_Med_Glob - T_Med_Serial).
+    if tabela.empty or "T_Med_Serial" not in tabela.columns:
+        return
+
+    tabela = tabela.sort_values("threads_alvo")
+    # Uma barra por configuracao de threads (usa a media quando ha mais de uma linha por valor de threads)
+    agregada = tabela.groupby("threads_alvo", as_index=False)[["T_Med_Glob", "T_Med_Serial"]].mean()
+
+    tempo_serial = agregada["T_Med_Serial"]
+    tempo_paralelo = agregada["T_Med_Glob"] - tempo_serial
+
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    x = agregada["threads_alvo"].astype(int).astype(str)
+
+    ax.bar(x, tempo_serial, label="Parte serial (antes do parallel)", color="firebrick")
+    ax.bar(x, tempo_paralelo, bottom=tempo_serial, label="Parte paralela (região OMP)", color="steelblue")
+
+    ax.set_xlabel("Threads")
+    ax.set_ylabel("Tempo Médio (s)")
+    ax.set_title(f"Tempo serial × tempo paralelo — {titulo}")
+    ax.legend()
+    ax.grid(alpha=0.3, axis="y")
+    salvar(fig, arquivo)
 
 def grafico_tempo_zoom(tabela, titulo, arquivo):
     if tabela.empty:
@@ -305,6 +332,7 @@ def main():
     if not tabela_a.empty:
         grafico_strong_scaling(tabela_a, "Região Padrão", "A_speedup_eficiência.png", combine_chunks=True)
         grafico_tempo_bruto(tabela_a, "Região Padrão", "A_tempo_bruto.png", combine_chunks=True)
+        grafico_tempo_serial_paralelo(tabela_a, "Região Padrão", "A_tempo_serial_paralelo.png")  # NOVO
 
     # COMPARACAO DE SIMETRIA (Usa ambos os cenarios salvos na execucao do Caso A)
     # Filtra as linhas onde o caso seja "A_padrao_threads" ou "A_padrao_sem_simetria"
@@ -319,6 +347,7 @@ def main():
         grafico_tempo_bruto(tabela_b, "Cavalos-Marinhos", "B_tempo_bruto.png")
         grafico_balanceamento(tabela_b, "Cavalos-Marinhos", "B_fator_balanceamento.png")
         grafico_tempo_zoom(tabela_b, "Cavalos-Marinhos", "B_tempo_bruto_zoom.png")
+        grafico_tempo_serial_paralelo(tabela_b, "Cavalos-Marinhos", "B_tempo_serial_paralelo.png")  # NOVO
 
     # 3. CASO C
     tabela_c = montar_tabela(df, baselines, "C_weak_scaling")
