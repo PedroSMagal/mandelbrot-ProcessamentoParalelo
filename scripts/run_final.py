@@ -53,6 +53,7 @@ RUN_COUNT_PAR = 30
 HEADER_ESPERADO = [
     "Modo", "Cenario", "Threads", "Escalonamento", "Chunk", "Resolucao",
     "MaxIter", "Vezes", "T_Med_Glob", "T_Min_Glob", "T_Max_Glob",
+    "T_Med_Serial",  # NOVO: coluna adicionada no CSV do mandelbrot.c (media do tempo da parte serial da funcao mandelbrot, antes do "#pragma omp parallel")
     "T_Med_Seq", "Speedup", "Eficiencia", "FatorBal", "Simetria",
     "T_Min_Thr", "T_Max_Thr", "T_Med_Thr",
     "Acuracia_%", "Diferentes", "Dif_Alem_Tol", "Aprovado", "Medias_Threads"
